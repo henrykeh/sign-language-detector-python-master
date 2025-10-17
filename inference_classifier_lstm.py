@@ -22,7 +22,7 @@ hands = mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_c
 labels_dict = {i: char for i, char in enumerate(string.ascii_uppercase)}
 
 sequence_data = []
-sequence_length = 30  # Same as used during training
+sequence_length = 16  # Same as used during training
 prediction_threshold = 0.8 # Confidence threshold to display prediction
 
 while True:
@@ -53,9 +53,13 @@ while True:
             all_hand_data.extend(hand_features)
 
     # Pad features and add to sequence
-    padding_size = 84 - len(all_hand_data)
-    all_hand_data.extend([0.0] * padding_size)
-    sequence_data.append(all_hand_data)
+    # Ensure all_hand_data is exactly 84 elements
+    if len(all_hand_data) > 84:
+        all_hand_data = all_hand_data[:84]  # Truncate if more than 84
+    elif len(all_hand_data) < 84:
+        all_hand_data.extend([0.0] * (84 - len(all_hand_data)))  # Pad if less than 84
+    
+    sequence_data.append(np.array(all_hand_data, dtype=np.float32))
 
     # Keep the sequence at the desired length
     if len(sequence_data) > sequence_length:
@@ -63,7 +67,9 @@ while True:
 
     # Make a prediction if the sequence is full
     if len(sequence_data) == sequence_length:
-        prediction = model.predict(np.expand_dims(sequence_data, axis=0))
+        # Stack the sequence data into a proper array shape (1, 16, 84)
+        sequence_array = np.stack(sequence_data, axis=0)
+        prediction = model.predict(np.expand_dims(sequence_array, axis=0), verbose=0)
         predicted_class_index = np.argmax(prediction)
         confidence = np.max(prediction)
 
